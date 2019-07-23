@@ -1,5 +1,5 @@
 (function () {
-    
+
     const margin = 10;
     const width = 740;
     const height = 500;
@@ -28,15 +28,15 @@
         let ratio = index / (data.nodes.length - 1.0);
         return colorScale(ratio);
     }
-    
+
     function darkenColor(color, factor) {
         return d3.color(color).darker(factor)
     }
-    
+
     function getGradientId(d) {
         return `gradient_${d.source.id}_${d.target.id}`;
     }
-    
+
     function getMousePosition(e) {
         e = e || d3.event;
         return {
@@ -44,7 +44,7 @@
             y: e.y
         };
     }
-    
+
     function getNodePosition(node) {
         return {
             x: +node.attr("x"),
@@ -53,7 +53,7 @@
             height: +node.attr("height")
         };
     }
-    
+
     function moveNode(node, position) {
         position.width = position.width || +(node.attr("width"));
         position.height = position.height || +(node.attr("height"));
@@ -82,8 +82,12 @@
                 .attr("x2", d => d.target.x0);
         svgLinks.selectAll("path")
                 .attr("d", path);
+        //update the text x and y
+        svgTexts.selectAll("text")
+                .attr("x", d=>d.x0)
+                .attr("y", d=>d.y0);
     }
-    
+
     function onDragDragging() {
         let currentMousePosition = getMousePosition(d3.event);
         let delta = {
@@ -97,14 +101,14 @@
             width: initialNodePosition.width,
             height: initialNodePosition.height
         };
-        moveNode(thisNode, newNodePosition);        
+        moveNode(thisNode, newNodePosition);
     }
-    
+
     function onDragEnd() {
         let node = d3.select(this)
                      .attr("stroke-width", 0);
     }
-    
+
     function onDragStart() {
         let node = d3.select(this)
                      .raise()
@@ -113,19 +117,19 @@
         initialNodePosition = getNodePosition(node);
         initialMousePosition = getMousePosition(d3.event);
     }
-    
+
     function reduceUnique(previous, current) {
         if (previous.indexOf(current) < 0) {
             previous.push(current);
         }
         return previous;
     }
-    
+
     function setInitialMousePosition(e) {
         initialMousePosition.x = e.x;
         initialMousePosition.y = e.y;
     }
-    
+
     function setInitialNodePosition(node) {
         let pos = node ? getNodePosition(node) : { x: 0, y: 0, width: 0, height: 0 };
         initialNodePosition.x = pos.x;
@@ -133,12 +137,12 @@
         initialNodePosition.width = pos.width;
         initialNodePosition.height = pos.height;
     }
-        
+
     function sumValues(previous, current) {
         previous += current;
         return previous;
     }
-    
+
     const data = {
         nodes: [
             { id: "A1" },
@@ -178,7 +182,7 @@
                   .style("border", svgBorder)
                   .append("g")
                   .attr("transform", `translate(${margin},${margin})`);
-    
+
     // Define our sankey instance.
     const graphSize = [width - 2*margin, height - 2*margin];
     const sankey = d3.sankey()
@@ -188,7 +192,7 @@
                      .nodePadding(nodePadding)
                      .nodeAlign(nodeAlignment);
     let graph = sankey(data);
-    
+
     // Loop through the nodes. Set additional properties to make a few things
     // easier to deal with later.
     graph.nodes.forEach(node => {
@@ -198,7 +202,7 @@
         node.width = node.x1 - node.x0;
         node.height = node.y1 - node.y0;
     });
-    
+
     // Build the links.
     let svgLinks = svg.append("g")
                       .classed("links", true)
@@ -220,7 +224,7 @@
             .attr("stroke", d => `url(#${getGradientId(d)})`)
             .attr("stroke-width", d => Math.max(1.0, d.width))
             .attr("stroke-opacity", linkOpacity);
-    
+
     // Add hover effect to links.
     svgLinks.append("title")
             .text(d => `${d.source.id} ${arrow} ${d.target.id}\n${d.value}`);
@@ -240,11 +244,11 @@
                       .attr("opacity", nodeOpacity)
                       .attr("stroke", d => d.strokeColor)
                       .attr("stroke-width", 0);
-    
+
     let nodeDepths = graph.nodes
         .map(n => n.depth)
         .reduce(reduceUnique, []);
-    
+
     nodeDepths.forEach(d => {
         let nodesAtThisDepth = graph.nodes.filter(n => n.depth === d);
         let numberOfNodes = nodesAtThisDepth.length;
@@ -255,21 +259,26 @@
         let balancedWhitespace = whitespace / (numberOfNodes + 1.0);
         console.log("depth", d, "total height", totalHeight, "whitespace", whitespace, "balanced whitespace", balancedWhitespace);
     });
-    
+
     // Add hover effect to nodes.
     svgNodes.append("title")
             .text(d => `${d.id}\n${d.value} unit(s)`);
-    svgNodes.append("text")
-            .attr("x", -6)
-            .attr("y", function(d) { return d.dy / 2; })
-            .attr("dy", ".35em")
-            .attr("text-anchor", "end")
-            .attr("transform", null)
-            .text(function(d) { return d.id; })
-            .filter(function(d) { return d.x < width / 2; })
-            .attr("x", 6 + sankey.nodeWidth())
-            .attr("text-anchor", "start");;
-            
+
+    //add text to rect
+    //used CSS in style.css
+    let svgTexts = svg.append("g")
+                      .classed("texts", true)
+                      .selectAll("text")
+                      .data(graph.nodes)
+                      .enter()
+                      .append("text")
+                      .classed("text", true)
+                      .attr("x", d => d.x0)
+                      .attr("y", d => d.y0)
+                      .attr("dy", "-2")
+                      .attr("fill", "black")
+                      .text(d=>d.id);
+
     svgNodes.call(d3.drag()
                     .on("start", onDragStart)
                     .on("drag", onDragDragging)
