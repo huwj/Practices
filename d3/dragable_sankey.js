@@ -1,3 +1,4 @@
+<!--Custom to have text dragable refers to http://bl.ocks.org/d3noob/c2637e28b79fb3bfea13-->
 (function () {
 
     const margin = 10;
@@ -69,9 +70,15 @@
         if (position.y + position.height > graphSize[1]) {
             position.y = graphSize[1] - position.height;
         }
-        node.attr("x", position.x)
+		//node includes rect and text in a group
+		//update the position x y in both objects
+        node.select("rect")
+			.attr("x", position.x)
             .attr("y", position.y);
-        let nodeData = node.data()[0];
+		node.select("text")
+			.attr("x", position.x)
+			.attr("y", position.y);
+        let nodeData = node.select("rect").data()[0];
         nodeData.x0 = position.x
         nodeData.x1 = position.x + position.width;
         nodeData.y0 = position.y;
@@ -82,10 +89,6 @@
                 .attr("x2", d => d.target.x0);
         svgLinks.selectAll("path")
                 .attr("d", path);
-        //update the text x and y
-        svgTexts.selectAll("text")
-                .attr("x", d=>d.x0)
-                .attr("y", d=>d.y0);
     }
 
     function onDragDragging() {
@@ -105,13 +108,17 @@
     }
 
     function onDragEnd() {
+		//node is a group including rect and text
+		//only applies to rect
         let node = d3.select(this)
+					 .select("rect")
                      .attr("stroke-width", 0);
     }
 
     function onDragStart() {
         let node = d3.select(this)
                      .raise()
+					 .select("rect")
                      .attr("stroke-width", nodeStrokeWidth);
         setInitialNodePosition(node);
         initialNodePosition = getNodePosition(node);
@@ -229,25 +236,43 @@
     svgLinks.append("title")
             .text(d => `${d.source.id} ${arrow} ${d.target.id}\n${d.value}`);
 
+	//Nodes are groups
     let svgNodes = svg.append("g")
                       .classed("nodes", true)
                       .selectAll("rect")
                       .data(graph.nodes)
                       .enter()
-                      .append("rect")
-                      .classed("node", true)
-                      .attr("x", d => d.x0)
-                      .attr("y", d => d.y0)
-                      .attr("width", d => d.width)
-                      .attr("height", d => d.height)
-                      .attr("fill", d => d.fillColor)
-                      .attr("opacity", nodeOpacity)
-                      .attr("stroke", d => d.strokeColor)
-                      .attr("stroke-width", 0);
+					  .append("g");
+	//a Node include a rect and a text
+	svgNodes.append("rect")
+		    .classed("node", true)
+		    .attr("x", d => d.x0)
+		    .attr("y", d => d.y0)
+		    .attr("width", d => d.width)
+		    .attr("height", d => d.height)
+		    .attr("fill", d => d.fillColor)
+		    .attr("opacity", nodeOpacity)
+		    .attr("stroke", d => d.strokeColor)
+		    .attr("stroke-width", 0)
+			// title nested in rect
+    		// Add hover effect to nodes.
+			.append("title")
+            .text(d => `${d.id}\n${d.value} unit(s)`);
+
+    //add text to a group with its rect as sibling
+    //used CSS in style.css
+    svgNodes.append("text")
+		  	.classed("text", true)
+		  	.attr("x", d => d.x0)
+		  	.attr("y", d => d.y0)
+		  	.attr("dy", "-2")
+		  	.attr("fill", "black")
+		  	.text(d=>d.id);
+
 
     let nodeDepths = graph.nodes
-        .map(n => n.depth)
-        .reduce(reduceUnique, []);
+        				  .map(n => n.depth)
+        				  .reduce(reduceUnique, []);
 
     nodeDepths.forEach(d => {
         let nodesAtThisDepth = graph.nodes.filter(n => n.depth === d);
@@ -260,25 +285,7 @@
         console.log("depth", d, "total height", totalHeight, "whitespace", whitespace, "balanced whitespace", balancedWhitespace);
     });
 
-    // Add hover effect to nodes.
-    svgNodes.append("title")
-            .text(d => `${d.id}\n${d.value} unit(s)`);
-
-    //add text to rect
-    //used CSS in style.css
-    let svgTexts = svg.append("g")
-                      .classed("texts", true)
-                      .selectAll("text")
-                      .data(graph.nodes)
-                      .enter()
-                      .append("text")
-                      .classed("text", true)
-                      .attr("x", d => d.x0)
-                      .attr("y", d => d.y0)
-                      .attr("dy", "-2")
-                      .attr("fill", "black")
-                      .text(d=>d.id);
-
+	//This moves the node where is a group
     svgNodes.call(d3.drag()
                     .on("start", onDragStart)
                     .on("drag", onDragDragging)
